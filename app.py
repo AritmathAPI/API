@@ -4,19 +4,20 @@ import tempfile
 import uuid
 from typing import Dict, Any
 
-from ocr import MockOCRModel
 from nlp import NLPCorrector
 from tokenizer import LexicalAnalyzer
 from parser import SyntacticAnalyzer
 from formatter import FormatConverter
+from trocr_ocr import TrOCRModel
 
 app = Flask(__name__)
 
-ocr_model = MockOCRModel()
+ocr_model = TrOCRModel()
 nlp_corrector = NLPCorrector()
 lexical_analyzer = LexicalAnalyzer()
 
 
+# Test expression: (\sqrt{57-2})^{7}
 @app.route("/solve-expression", methods=["POST"])
 def solve_expression():
     """
