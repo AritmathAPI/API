@@ -16,6 +16,7 @@ class NLPCorrector:
             self.fill_mask = pipeline(
                 "fill-mask", model=self.model, tokenizer=self.tokenizer, top_k=10
             )
+
             print(f"Successfully initialized NLP model: {model_name}")
         except Exception as e:
             print(f"Warning: Failed to initialize NLP model {model_name}: {e}")
@@ -38,12 +39,16 @@ class NLPCorrector:
             "z": "2",
             "B": "8",
         }
+
         for wrong, correct in corrections.items():
             text = text.replace(wrong, correct)
+
         if self.fill_mask:
             text = self._contextual_correction(text)
+
         text = self._correct_syntax_with_rules(text)
         text = self._correct_parentheses(text)
+
         return text
 
     def _correct_syntax_with_rules(self, text: str) -> str:
@@ -63,7 +68,6 @@ class NLPCorrector:
         )
 
         text = re.sub(r"([\+\-\*\/])(\))", r"\2", text)
-
         text = re.sub(r"\(\)", "", text)
 
         return text
@@ -76,12 +80,15 @@ class NLPCorrector:
             if char == "(":
                 balance += 1
                 corrected_text += char
+
             elif char == ")":
                 if balance > 0:
                     balance -= 1
                     corrected_text += char
+
             else:
                 corrected_text += char
+
         if balance > 0:
             corrected_text += ")" * balance
 
@@ -96,6 +103,7 @@ class NLPCorrector:
 
         while re.search(r"[a-zA-Z]", corrected_text):
             match = re.search(r"[a-zA-Z]", corrected_text)
+
             if not match:
                 break
 
@@ -127,6 +135,7 @@ class NLPCorrector:
                 print(
                     f"Error during BERT prediction: {e}. Removing offending character."
                 )
+
                 corrected_text = corrected_text[:start] + corrected_text[end:]
 
         return corrected_text

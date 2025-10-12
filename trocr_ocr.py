@@ -1,6 +1,6 @@
 from transformers import TrOCRProcessor, VisionEncoderDecoderModel
 from PIL import Image
-
+from sympy.parsing.latex import parse_latex
 from ocr import OCRModel
 
 
@@ -19,6 +19,6 @@ class TrOCRModel(OCRModel):
             generated_ids, skip_special_tokens=True
         )[0]
 
-        print(f"Generated text: ", generated_text)
+        sympy_exp = parse_latex(generated_text)
 
-        return generated_text
+        return str(sympy_exp)

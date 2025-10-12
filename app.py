@@ -2,13 +2,25 @@ from flask import Flask, request, jsonify
 import os
 import tempfile
 import uuid
-from typing import Dict, Any
+from typing import Dict, Any, TypedDict
 
 from nlp import NLPCorrector
 from tokenizer import LexicalAnalyzer
 from parser import SyntacticAnalyzer
 from formatter import FormatConverter
 from trocr_ocr import TrOCRModel
+from sympy.parsing.latex import parse_latex
+
+def format_math(expr, format):
+    try:
+        if format == 'latex':
+            return FormatConverter.to_latex(str(expr))
+        elif format == 'mathml':
+            return FormatConverter.to_mathml(str(expr))
+        else:
+            return str(expr)
+    except:
+        return str(expr)
 
 app = Flask(__name__)
 
@@ -44,7 +56,9 @@ def solve_expression():
         try:
             image_file.save(temp_path)
 
-            result = process_expression_pipeline(temp_path)
+            format = request.form.get('format', 'latex')
+
+            result = process_expression_pipeline(temp_path, format)
 
             return jsonify(result), 200
 
@@ -55,19 +69,24 @@ def solve_expression():
     except Exception as e:
         return jsonify({"error": f"Processing error: {str(e)}", "status": "error"}), 500
 
+class LatexBody(TypedDict, total=False):
+    latex: str
+    format: str
 
-def process_expression_pipeline(image_path: str) -> Dict[str, Any]:
-    """
-    Process an image through the complete expression solving pipeline.
+@app.route("/solve-latex", methods=["POST"])
+def solve_latex():
+    try:
+        data: LatexBody = request.get_json()
 
-    Args:
-        image_path (str): Path to the image file
+        format = data.get('format', 'latex')
 
-    Returns:
-        Dict[str, Any]: Complete solution with all processing steps
-    """
-    raw_expression = ocr_model.extract_text(image_path)
+        result = process_latex_pipeline(data["latex"], format)
 
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": f"Processing error: {str(e)}", "status": "error"}), 500
+
+def process_raw_expression_pipeline(raw_expression: str, format: str = 'latex'):
     try:
         corrected_expression = nlp_corrector.correct_expression(raw_expression)
     except Exception as e:
@@ -89,7 +108,7 @@ def process_expression_pipeline(image_path: str) -> Dict[str, Any]:
 
         final_result = parser.evaluate(ast_root)
 
-        steps = parser.solve_step_by_step(ast_root)
+        steps = parser.solve_by_substitution()
 
         normalized_expression = parser.to_string(ast_root)
 
@@ -100,18 +119,37 @@ def process_expression_pipeline(image_path: str) -> Dict[str, Any]:
         latex_output = FormatConverter.to_latex(normalized_expression)
         mathml_output = FormatConverter.to_mathml(normalized_expression)
 
-        formatted_steps = [FormatConverter.format_step(step) for step in steps]
+        formatted_steps = steps
 
     except Exception as e:
         raise ValueError(f"Format conversion failed: {e}")
 
     return {
-        "input_expression_raw": raw_expression,
-        "expression_corrected": normalized_expression,
-        "solution": {"steps": formatted_steps, "final_result": final_result},
-        "export_formats": {"latex": latex_output, "mathml": mathml_output},
+        "input_expression_raw": format_math(raw_expression, format),
+        "expression_corrected": format_math(normalized_expression, format),
+        "solution": {"steps": [format_math(step, format) for step in formatted_steps], "final_result": format_math(final_result, format)},
         "status": "success",
     }
+
+def process_latex_pipeline(latex_expression: str, format: str = 'latex') -> Dict[str, Any]:
+    processed_expression = str(parse_latex(latex_expression))
+
+    return process_raw_expression_pipeline(processed_expression, format)
+
+def process_expression_pipeline(image_path: str, format: str = 'latex') -> Dict[str, Any]:
+    """
+    Process an image through the complete expression solving pipeline.
+
+    Args:
+        image_path (str): Path to the image file
+        format (str): Output format ('latex' or 'mathml')
+
+    Returns:
+        Dict[str, Any]: Complete solution with all processing steps
+    """
+    raw_expression = ocr_model.extract_text(image_path)
+
+    return process_raw_expression_pipeline(raw_expression, format)
 
 
 @app.errorhandler(404)

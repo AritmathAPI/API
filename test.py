@@ -1,7 +1,14 @@
 from sympy.parsing.latex import parse_latex
 
-expression = "(\sqrt{57-2})^{7}"
-sympy_exp = parse_latex(expression)
-result = sympy_exp.evalf()
+expressions = [
+    "( (10 + 5) \\times 2 ) / ( 10 - 4 )",
+    "\\frac{200}{4}"
+]
 
-print(expression, result)
+def eval_expression(expression: str):
+    sympy_exp = parse_latex(expression)
+    result = sympy_exp.evalf()
+
+    print(str(sympy_exp), result)
+
+[eval_expression(exp) for exp in expressions]

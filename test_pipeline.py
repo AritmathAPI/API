@@ -97,7 +97,7 @@ def test_parser():
 
             parser = SyntacticAnalyzer(tokens)
             result = parser.evaluate()
-            steps = parser.solve_step_by_step()
+            steps = parser.solve_by_substitution()
 
             print(f"Expression: {expr}")
             print(f"Result: {result}")
@@ -164,7 +164,7 @@ def test_complete_pipeline():
             # Step 4: Parsing and Evaluation
             parser = SyntacticAnalyzer(tokens)
             result = parser.evaluate()
-            steps = parser.solve_step_by_step()
+            steps = parser.solve_by_substitution()
 
             print(f"4. Final Result: {result}")
             print("5. Step-by-step solution:")
