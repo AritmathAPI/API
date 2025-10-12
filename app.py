@@ -11,16 +11,75 @@ from formatter import FormatConverter
 from trocr_ocr import TrOCRModel
 from sympy.parsing.latex import parse_latex
 
+
 def format_math(expr, format):
     try:
-        if format == 'latex':
+        if format == "latex":
             return FormatConverter.to_latex(str(expr))
-        elif format == 'mathml':
+        elif format == "mathml":
             return FormatConverter.to_mathml(str(expr))
         else:
             return str(expr)
     except:
         return str(expr)
+
+
+def process_raw_expression_pipeline(raw_expression: str, format: str = "latex"):
+    try:
+        corrected_expression = nlp_corrector.correct_expression(raw_expression)
+    except Exception as e:
+        raise ValueError(f"Correção NLP falhou: {e}")
+
+    try:
+        tokens = lexical_analyzer.tokenize(corrected_expression)
+
+        if not lexical_analyzer.validate_tokens(tokens):
+            raise ValueError("Sequência inválida de tokens na expressão")
+
+    except Exception as e:
+        raise ValueError(f"Análise Léxica falhou: {e}")
+
+    try:
+        parser = SyntacticAnalyzer(tokens)
+        ast_root = parser.parse()
+        final_result = parser.evaluate(ast_root)
+        steps = parser.solve_by_substitution()
+        normalized_expression = parser.to_string(ast_root)
+
+    except Exception as e:
+        raise ValueError(f"Análise Sintática falhou: {e}")
+
+    return {
+        "input_expression_raw": format_math(raw_expression, format),
+        "expression_corrected": format_math(normalized_expression, format),
+        "solution": {
+            "steps": [format_math(step, format) for step in steps],
+            "final_result": format_math(final_result, format),
+        },
+        "status": "success",
+    }
+
+
+def process_latex_pipeline(
+    latex_expression: str, format: str = "latex"
+) -> Dict[str, Any]:
+    processed_expression = str(parse_latex(latex_expression))
+
+    return process_raw_expression_pipeline(processed_expression, format)
+
+
+def process_expression_pipeline(
+    image_path: str, format: str = "latex"
+) -> Dict[str, Any]:
+    raw_expression = ocr_model.extract_text(image_path)
+
+    return process_raw_expression_pipeline(raw_expression, format)
+
+
+class LatexBody(TypedDict, total=False):
+    latex: str
+    format: str
+
 
 app = Flask(__name__)
 
@@ -55,9 +114,7 @@ def solve_expression():
 
         try:
             image_file.save(temp_path)
-
-            format = request.form.get('format', 'latex')
-
+            format = request.form.get("format", "latex")
             result = process_expression_pipeline(temp_path, format)
 
             return jsonify(result), 200
@@ -67,89 +124,25 @@ def solve_expression():
                 os.remove(temp_path)
 
     except Exception as e:
-        return jsonify({"error": f"Processing error: {str(e)}", "status": "error"}), 500
+        return (
+            jsonify({"error": f"Erro de processamento: {str(e)}", "status": "error"}),
+            500,
+        )
 
-class LatexBody(TypedDict, total=False):
-    latex: str
-    format: str
 
 @app.route("/solve-latex", methods=["POST"])
 def solve_latex():
     try:
         data: LatexBody = request.get_json()
-
-        format = data.get('format', 'latex')
-
+        format = data.get("format", "latex")
         result = process_latex_pipeline(data["latex"], format)
 
         return jsonify(result), 200
     except Exception as e:
-        return jsonify({"error": f"Processing error: {str(e)}", "status": "error"}), 500
-
-def process_raw_expression_pipeline(raw_expression: str, format: str = 'latex'):
-    try:
-        corrected_expression = nlp_corrector.correct_expression(raw_expression)
-    except Exception as e:
-        raise ValueError(f"NLP correction failed: {e}")
-
-    try:
-        tokens = lexical_analyzer.tokenize(corrected_expression)
-
-        if not lexical_analyzer.validate_tokens(tokens):
-            raise ValueError("Invalid token sequence in expression")
-
-    except Exception as e:
-        raise ValueError(f"Lexical analysis failed: {e}")
-
-    try:
-        parser = SyntacticAnalyzer(tokens)
-
-        ast_root = parser.parse()
-
-        final_result = parser.evaluate(ast_root)
-
-        steps = parser.solve_by_substitution()
-
-        normalized_expression = parser.to_string(ast_root)
-
-    except Exception as e:
-        raise ValueError(f"Syntactic analysis failed: {e}")
-
-    try:
-        latex_output = FormatConverter.to_latex(normalized_expression)
-        mathml_output = FormatConverter.to_mathml(normalized_expression)
-
-        formatted_steps = steps
-
-    except Exception as e:
-        raise ValueError(f"Format conversion failed: {e}")
-
-    return {
-        "input_expression_raw": format_math(raw_expression, format),
-        "expression_corrected": format_math(normalized_expression, format),
-        "solution": {"steps": [format_math(step, format) for step in formatted_steps], "final_result": format_math(final_result, format)},
-        "status": "success",
-    }
-
-def process_latex_pipeline(latex_expression: str, format: str = 'latex') -> Dict[str, Any]:
-    processed_expression = str(parse_latex(latex_expression))
-
-    return process_raw_expression_pipeline(processed_expression, format)
-
-def process_expression_pipeline(image_path: str, format: str = 'latex') -> Dict[str, Any]:
-    """
-    Process an image through the complete expression solving pipeline.
-
-    Args:
-        image_path (str): Path to the image file
-        format (str): Output format ('latex' or 'mathml')
-
-    Returns:
-        Dict[str, Any]: Complete solution with all processing steps
-    """
-    raw_expression = ocr_model.extract_text(image_path)
-
-    return process_raw_expression_pipeline(raw_expression, format)
+        return (
+            jsonify({"error": f"Erro de processamento: {str(e)}", "status": "error"}),
+            400,
+        )
 
 
 @app.errorhandler(404)
