@@ -54,13 +54,13 @@ O fluxo principal da API é composto pelas seguintes etapas:
 
 ```mermaid
 flowchart TD
-    A[Entrada da Imagem] --> B[OCR (TrOCRModel)]
-    B --> C[NLP (NLPCorrector)]
-    C --> D[Tokenização (LexicalAnalyzer)]
-    D --> E[Análise Sintática (SyntacticAnalyzer)]
-    E --> F[Resolução Passo a Passo (ASTNode)]
-    F --> G[Exportação (FormatConverter)]
-    G --> H[API REST (Flask app.py)]
+    A[Entrada da Imagem] --> B["OCR (TrOCRModel)"]
+    B --> C["NLP (NLPCorrector)"]
+    C --> D["Tokenização (LexicalAnalyzer)"]
+    D --> E["Análise Sintática (SyntacticAnalyzer)"]
+    E --> F["Resolução Passo a Passo (ASTNode)"]
+    F --> G["Exportação (FormatConverter)"]
+    G --> H["API REST (Flask app.py)"]
 ```
 
 ---
